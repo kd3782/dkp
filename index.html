@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DKP - Top 300 Power</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🏆 DKP - CH25</h1>
+
+        <div class="stats">
+            <div>Last Updated: <span id="last-update">-</span></div>
+            <div>Total Players: <span id="player-count">0</span></div>
+        </div>
+
+        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading data from Google Sheets...</div>
+        </div>
+
+        <div id="data-container"></div>
+    </div>
+
+    <script>
+        // =========== CONFIGURATION ===========
+        // MAIN SPREADSHEET ID (from your link, already correct)
+        const SPREADSHEET_ID = '2PACX-1vQwfeeWy3I-HC8aKkwldxD54DdMh_yRDa9ryDbJDq-RdCQDb81hOYqU48MORrRtWUV7JkBFCcm2TY7s';
+        // REPLACE THIS WITH YOUR SHEET'S GID
+        const SHEET_GID = '0'; // <-- You MUST change this!
+
+        // Custom column headers for B:G
+        const CUSTOM_HEADERS = [
+            'Rank',           // Column B
+            'Player Name',    // Column C
+            'Power ',    // Column D
+            'Alliance',       // Column E
+            'KP DKP',          // Column F
+            'Deads DKP'    // Column G
+        ];
+
+        // Data starts from row 3 (zero-indexed row 2)
+        const START_ROW = 2;
+        // Columns we want: B, C, D, E, F, G (indices 1-6)
+        const TARGET_COLUMNS = [1, 2, 3, 4, 5, 6];
+        // ======================================
+
+        // Construct the URL
+        const SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`;
+
+        async function loadData() {
+            try {
+                document.getElementById('loading').style.display = 'flex';
+                document.getElementById('data-container').innerHTML = '';
+                const url = `${SHEET_URL}&t=${new Date().getTime()}`;
+                const response = await fetch(url);
+                const csvText = await response.text();
+                const results = Papa.parse(csvText, { header: false, skipEmptyLines: true });
+                const filteredData = extractData(results.data);
+                displayData(filteredData);
+                document.getElementById('player-count').textContent = filteredData.length;
+                document.getElementById('last-update').textContent = new Date().toLocaleString();
+            } catch (error) {
+                document.getElementById('data-container').innerHTML =
+                    `<div class="error-box">
+                        <strong>Error loading data:</strong><br>
+                        ${error.message}<br>
+                        Please ensure: 1) The sheet is published (File > Share > Publish to web), 2) The GID below is correct.
+                        <br><br>
+                        <small>Current GID being used: <code>${SHEET_GID}</code></small>
+                    </div>`;
+                console.error("Error:", error);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function extractData(allRows) {
+            if (!allRows || allRows.length === 0) return [];
+            const extractedData = [];
+            for (let rowIndex = START_ROW; rowIndex < allRows.length; rowIndex++) {
+                const row = allRows[rowIndex];
+                const extractedRow = [];
+                TARGET_COLUMNS.forEach(colIndex => {
+                    extractedRow.push((colIndex < row.length) ? (row[colIndex] || '') : '');
+                });
+                extractedData.push(extractedRow);
+            }
+            return extractedData;
+        }
+
+        function displayData(data) {
+            if (!data || data.length === 0) {
+                document.getElementById('data-container').innerHTML =
+                    '<div class="no-data">No data available. If the sheet has data, please check the GID and publishing settings.</div>';
+                return;
+            }
+            let html = `<div class="table-container"><table><thead><tr>`;
+            CUSTOM_HEADERS.forEach(header => { html += `<th>${header}</th>`; });
+            html += `</tr></thead><tbody>`;
+            data.forEach((row, rowIndex) => {
+                html += `<tr>`;
+                row.forEach((cell, cellIndex) => {
+                    let cellContent = cell || '';
+                    if (cellIndex === 0) {
+                        if (cellContent === '1') cellContent = '🥇 ' + cellContent;
+                        else if (cellContent === '2') cellContent = '🥈 ' + cellContent;
+                        else if (cellContent === '3') cellContent = '🥉 ' + cellContent;
+                    }
+                    html += `<td>${cellContent}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</tbody></table></div>`;
+            document.getElementById('data-container').innerHTML = html;
+        }
+        document.addEventListener('DOMContentLoaded', loadData);
+        setInterval(loadData, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
