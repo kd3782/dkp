@@ -14,9 +14,19 @@
         <div class="stats">
             <div>Last Updated: <span id="last-update">-</span></div>
             <div>Total Players: <span id="player-count">0</span></div>
+            <div>Showing: <span id="showing-count">0</span> players</div>
+            <div>Last Scan: <span id="last-scan">10.02.2026</span></div>
         </div>
 
-        <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+        <div class="controls">
+            <button class="refresh-btn" onclick="loadData()">🔄 Refresh Data</button>
+            
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Search player name..." 
+                       onkeyup="filterTable()" onfocus="this.select()">
+                <button onclick="clearSearch()" class="clear-search-btn">✕ Clear</button>
+            </div>
+        </div>
 
         <div id="loading">
             <div class="spinner"></div>
@@ -24,33 +34,66 @@
         </div>
 
         <div id="data-container"></div>
+
+        <div class="legend">
+            <div class="legend-section">
+                <h4>Rank Colors (Column 1)</h4>
+                <div class="legend-items">
+                    <span class="legend-item">
+                        <span class="legend-box rank-1-3-box"></span>
+                        Rank 1-3
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-box rank-4-10-box"></span>
+                        Rank 4-10
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-box rank-11-25-box"></span>
+                        Rank 11-25
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-box rank-26-50-box"></span>
+                        Rank 26-50
+                    </span>
+                </div>
+            </div>
+            
+            <div class="legend-section">
+                <h4>DKP Colors (Columns 2-6)</h4>
+                <div class="legend-items">
+                    <span class="legend-item">
+                        <span class="legend-box green-dkp-box"></span>
+                        = DKP ≥ 100%
+                    </span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         // =========== CONFIGURATION ===========
-        // MAIN SPREADSHEET ID (from your link, already correct)
         const SPREADSHEET_ID = '2PACX-1vQwfeeWy3I-HC8aKkwldxD54DdMh_yRDa9ryDbJDq-RdCQDb81hOYqU48MORrRtWUV7JkBFCcm2TY7s';
-        // REPLACE THIS WITH YOUR SHEET'S GID
-        const SHEET_GID = '0'; // <-- You MUST change this!
-
-        // Custom column headers for B:G
+        const SHEET_GID = '0';
+        
         const CUSTOM_HEADERS = [
-            'Rank',           // Column B
-            'Player Name',    // Column C
-            'Power ',    // Column D
-            'Alliance',       // Column E
-            'KP DKP',          // Column F
-            'Deads DKP'    // Column G
+            'Rank',
+            'Player Name',
+            'DKP',
+            'Power',
+            'KP DKP',  // This column checked for ≥100%
+            'Deads DKP'
         ];
 
-        // Data starts from row 3 (zero-indexed row 2)
         const START_ROW = 2;
-        // Columns we want: B, C, D, E, F, G (indices 1-6)
-        const TARGET_COLUMNS = [1, 2, 3, 4, 5, 6];
+        const TARGET_COLUMNS = [1, 2, 4, 3, 5, 6];
+        
+        const KP_DKP_COLUMN = 4; // Index of KP DKP column
         // ======================================
 
-        // Construct the URL
         const SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`;
+        
+        let allPlayerData = [];
+        let filteredData = [];
 
         async function loadData() {
             try {
@@ -60,18 +103,23 @@
                 const response = await fetch(url);
                 const csvText = await response.text();
                 const results = Papa.parse(csvText, { header: false, skipEmptyLines: true });
-                const filteredData = extractData(results.data);
+                
+                allPlayerData = extractData(results.data);
+                filteredData = [...allPlayerData];
+                
                 displayData(filteredData);
-                document.getElementById('player-count').textContent = filteredData.length;
-                document.getElementById('last-update').textContent = new Date().toLocaleString();
+                updateCounters();
+                
+                const now = new Date();
+                document.getElementById('last-update').textContent = now.toLocaleTimeString();
+                document.getElementById('last-scan').textContent = now.toLocaleDateString('en-GB');
+                
             } catch (error) {
                 document.getElementById('data-container').innerHTML =
                     `<div class="error-box">
                         <strong>Error loading data:</strong><br>
                         ${error.message}<br>
-                        Please ensure: 1) The sheet is published (File > Share > Publish to web), 2) The GID below is correct.
-                        <br><br>
-                        <small>Current GID being used: <code>${SHEET_GID}</code></small>
+                        Please ensure: 1) The sheet is published, 2) The GID is correct.
                     </div>`;
                 console.error("Error:", error);
             } finally {
@@ -93,33 +141,409 @@
             return extractedData;
         }
 
+        function hasHighDkp(row) {
+            if (!row || row.length <= KP_DKP_COLUMN) return false;
+            
+            const kpDkpValue = row[KP_DKP_COLUMN];
+            if (!kpDkpValue) return false;
+            
+            // Remove % sign and convert to number
+            const cleanValue = kpDkpValue.toString()
+                .replace('%', '')
+                .replace(',', '.')
+                .trim();
+            
+            const numericValue = parseFloat(cleanValue);
+            
+            // Return true if number is valid and ≥ 100
+            return !isNaN(numericValue) && numericValue >= 100;
+        }
+
+        function getRankColorClass(rankValue) {
+            const rankNum = parseInt(rankValue);
+            if (isNaN(rankNum)) return '';
+            
+            if (rankNum >= 1 && rankNum <= 3) return 'rank-1-3';
+            if (rankNum >= 4 && rankNum <= 10) return 'rank-4-10';
+            if (rankNum >= 11 && rankNum <= 25) return 'rank-11-25';
+            if (rankNum >= 26 && rankNum <= 50) return 'rank-26-50';
+            
+            return '';
+        }
+
         function displayData(data) {
             if (!data || data.length === 0) {
-                document.getElementById('data-container').innerHTML =
-                    '<div class="no-data">No data available. If the sheet has data, please check the GID and publishing settings.</div>';
+                const searchTerm = document.getElementById('search-input').value;
+                if (searchTerm) {
+                    document.getElementById('data-container').innerHTML =
+                        `<div class="no-data">No players found matching "${searchTerm}"</div>`;
+                } else {
+                    document.getElementById('data-container').innerHTML =
+                        '<div class="no-data">No data available.</div>';
+                }
                 return;
             }
+            
             let html = `<div class="table-container"><table><thead><tr>`;
             CUSTOM_HEADERS.forEach(header => { html += `<th>${header}</th>`; });
             html += `</tr></thead><tbody>`;
+            
             data.forEach((row, rowIndex) => {
+                const highDkp = hasHighDkp(row);
+                
                 html += `<tr>`;
+                
                 row.forEach((cell, cellIndex) => {
                     let cellContent = cell || '';
+                    let cellClass = '';
+                    
+                    // Column 1: Rank-based colors
                     if (cellIndex === 0) {
+                        cellClass = getRankColorClass(cellContent);
                         if (cellContent === '1') cellContent = '🥇 ' + cellContent;
                         else if (cellContent === '2') cellContent = '🥈 ' + cellContent;
                         else if (cellContent === '3') cellContent = '🥉 ' + cellContent;
                     }
-                    html += `<td>${cellContent}</td>`;
+                    // Columns 2-6: Green if DKP ≥ 100%
+                    else if (cellIndex >= 1 && cellIndex <= 5 && highDkp) {
+                        cellClass = 'green-dkp-cell';
+                    }
+                    
+                    // Highlight search term in Player Name
+                    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                    if (cellIndex === 1 && searchTerm && cellContent.toLowerCase().includes(searchTerm)) {
+                        const regex = new RegExp(`(${searchTerm})`, 'gi');
+                        cellContent = cellContent.replace(regex, '<mark>$1</mark>');
+                    }
+                    
+                    html += `<td class="${cellClass}">${cellContent}</td>`;
                 });
                 html += `</tr>`;
             });
+            
             html += `</tbody></table></div>`;
             document.getElementById('data-container').innerHTML = html;
         }
+
+        function filterTable() {
+            const searchInput = document.getElementById('search-input');
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                filteredData = [...allPlayerData];
+            } else {
+                filteredData = allPlayerData.filter(row => {
+                    const playerName = row[1] || '';
+                    return playerName.toLowerCase().includes(searchTerm);
+                });
+            }
+            
+            displayData(filteredData);
+            updateCounters();
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            filteredData = [...allPlayerData];
+            displayData(filteredData);
+            updateCounters();
+            document.getElementById('search-input').focus();
+        }
+
+        function updateCounters() {
+            document.getElementById('player-count').textContent = allPlayerData.length;
+            document.getElementById('showing-count').textContent = filteredData.length;
+        }
+
         document.addEventListener('DOMContentLoaded', loadData);
         setInterval(loadData, 5 * 60 * 1000);
     </script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+        .stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+            color: #495057;
+        }
+        .stats span {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .refresh-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+        }
+        .search-container {
+            display: flex;
+            gap: 10px;
+            flex-grow: 1;
+            max-width: 400px;
+        }
+        #search-input {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        #search-input:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        .clear-search-btn {
+            padding: 12px 20px;
+            background: #95a5a6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        .clear-search-btn:hover {
+            background: #7f8c8d;
+        }
+        #loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .table-container {
+            max-height: 800px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            background: linear-gradient(135deg, #2c3e50, #4a6491);
+            color: white;
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        td {
+            border: 1px solid #e1e1e1;
+            padding: 14px 12px;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        tr:hover td {
+            background-color: #e3f2fd !important;
+        }
+        
+        /* Column 1: Rank-based colors */
+        td.rank-1-3 {
+            background-color: #fff3cd !important;
+            border-left: 4px solid #ffc107;
+            font-weight: bold;
+        }
+        td.rank-4-10 {
+            background-color: #e2e3e5 !important;
+            border-left: 4px solid #6c757d;
+            font-weight: bold;
+        }
+        td.rank-11-25 {
+            background-color: #f8d7da !important;
+            border-left: 4px solid #dc3545;
+            font-weight: bold;
+        }
+        td.rank-26-50 {
+            background-color: #cce5ff !important;
+            border-left: 4px solid #0d6efd;
+            font-weight: bold;
+        }
+        
+        /* Columns 2-6: Green when DKP ≥ 100% */
+        td.green-dkp-cell {
+            background-color: #d4edda !important;
+        }
+        
+        /* Legend */
+        .legend {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .legend-section h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #495057;
+        }
+        .legend-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid;
+            border-radius: 4px;
+            vertical-align: middle;
+        }
+        
+        /* Rank color boxes */
+        .rank-1-3-box {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+        }
+        .rank-4-10-box {
+            background-color: #e2e3e5;
+            border-color: #6c757d;
+        }
+        .rank-11-25-box {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+        }
+        .rank-26-50-box {
+            background-color: #cce5ff;
+            border-color: #0d6efd;
+        }
+        
+        /* DKP color box */
+        .green-dkp-box {
+            background-color: #d4edda;
+            border-color: #28a745;
+        }
+        
+        .error-box {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        mark {
+            background-color: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-container {
+                max-width: 100%;
+            }
+            .stats {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .legend {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+    </style>
 </body>
 </html>
