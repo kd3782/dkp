@@ -11,6 +11,49 @@
     <div class="container">
         <h1>🏆 DKP - CH25</h1>
 
+        <!-- =========== DKP CALCULATOR =========== -->
+<div class="calculator">
+    <h2>🧮 DKP Calculator</h2>
+    <p class="calculator-note">Enter your in-game name to see how much KP you need for 100% DKP</p>
+    
+    <div class="calculator-row">
+        <div class="calculator-input-group">
+            <label for="calc-name">Player Name:</label>
+            <input type="text" id="calc-name" placeholder="Enter your nickname..." oninput="searchPlayerForCalc()">
+        </div>
+        <button class="calculator-btn" onclick="searchPlayerForCalc()">🔍 Calculate</button>
+    </div>
+    
+    <div id="calculator-results" class="calculator-results" style="display: none;">
+        <div class="results-grid">
+            <div class="result-item">
+                <span class="result-label">Current Power:</span>
+                <span class="result-value" id="calc-power">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Current DKP:</span>
+                <span class="result-value" id="calc-dkp">-</span>
+            </div>
+            <div class="result-item highlight">
+                <span class="result-label">T4/T5 KP needed for 100%:</span>
+                <span class="result-value" id="calc-kp-needed">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">T4 units to kill:</span>
+                <span class="result-value" id="calc-t4-kills">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">T5 units to kill:</span>
+                <span class="result-value" id="calc-t5-kills">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="calculator-not-found" class="calculator-not-found" style="display: none;">
+        ❌ Player not found. Check the spelling or try a different name.
+    </div>
+</div>
+
         <div class="stats">
             <div>Last Updated: <span id="last-update">-</span></div>
             <div>Total Players: <span id="player-count">0</span></div>
@@ -170,6 +213,79 @@
             return '';
         }
 
+        // =========== CALCULATOR FUNCTIONS ===========
+function searchPlayerForCalc() {
+    const playerName = document.getElementById('calc-name').value.trim();
+    
+    if (!playerName) {
+        alert('Please enter a player name');
+        return;
+    }
+    
+    // Search for player in data
+    const player = allPlayerData.find(row => 
+        row[1]?.toLowerCase() === playerName.toLowerCase()
+    );
+    
+    const resultsDiv = document.getElementById('calculator-results');
+    const notFoundDiv = document.getElementById('calculator-not-found');
+    const formulaDiv = document.getElementById('calc-formula');
+    
+    if (!player) {
+        // Player not found
+        resultsDiv.style.display = 'none';
+        notFoundDiv.style.display = 'block';
+        formulaDiv.style.display = 'none';
+        return;
+    }
+    
+    // Player found - extract data
+    // Index mapping: [0]Rank, [1]Name, [2]DKP, [3]Power, [4]KP DKP, [5]Deads DKP
+    
+    // Extract numeric values (remove commas, etc.)
+    const powerStr = player[3]?.toString() || '0';
+    const dkpStr = player[2]?.toString() || '0';
+    const kpDkpStr = player[4]?.toString() || '0%';
+    
+    // Parse numbers
+    const power = parseFloat(powerStr.replace(/[^0-9.-]/g, '')) || 0;
+    const dkp = parseFloat(dkpStr.replace(/[^0-9.-]/g, '')) || 0;
+    const kpDkp = parseFloat(kpDkpStr.replace(/[^0-9.-]/g, '')) || 0;
+    
+    // Calculate KP needed: (Power - DKP) * 2
+    const kpNeeded = (power - dkp) * 2;
+    
+    // Calculate T4 and T5 kills
+    const t4Kills = Math.ceil(kpNeeded / 10);
+    const t5Kills = Math.ceil(kpNeeded / 20);
+    
+    // Format for display
+    const formattedPower = power.toLocaleString('en-US');
+    const formattedDkp = dkp.toLocaleString('en-US');
+    const formattedKpNeeded = Math.round(kpNeeded).toLocaleString('en-US');
+    const formattedT4Kills = t4Kills.toLocaleString('en-US');
+    const formattedT5Kills = t5Kills.toLocaleString('en-US');
+    
+    // Update results
+    document.getElementById('calc-power').textContent = formattedPower;
+    document.getElementById('calc-dkp').textContent = formattedDkp;
+    document.getElementById('calc-kp-needed').textContent = formattedKpNeeded;
+    document.getElementById('calc-t4-kills').textContent = formattedT4Kills;
+    document.getElementById('calc-t5-kills').textContent = formattedT5Kills;
+    
+    // Show results
+    resultsDiv.style.display = 'block';
+    notFoundDiv.style.display = 'none';
+    formulaDiv.style.display = 'block';
+    
+    // Highlight if already at 100%+
+    if (kpDkp >= 100) {
+        document.getElementById('calc-kp-needed').innerHTML = '✅ Already at 100%+';
+        document.getElementById('calc-t4-kills').innerHTML = '✅';
+        document.getElementById('calc-t5-kills').innerHTML = '✅';
+    }
+}
+
         function displayData(data) {
             if (!data || data.length === 0) {
                 const searchTerm = document.getElementById('search-input').value;
@@ -257,292 +373,5 @@
         document.addEventListener('DOMContentLoaded', loadData);
         setInterval(loadData, 5 * 60 * 1000);
     </script>
-
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #2c3e50;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 10px;
-            margin-bottom: 25px;
-        }
-        .stats {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
-            display: flex;
-            gap: 30px;
-            font-size: 14px;
-            color: #495057;
-        }
-        .stats span {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: center;
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        .refresh-btn {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-        .refresh-btn:hover {
-            transform: translateY(-2px);
-        }
-        .search-container {
-            display: flex;
-            gap: 10px;
-            flex-grow: 1;
-            max-width: 400px;
-        }
-        #search-input {
-            flex-grow: 1;
-            padding: 12px 15px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        #search-input:focus {
-            border-color: #3498db;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-        }
-        .clear-search-btn {
-            padding: 12px 20px;
-            background: #95a5a6;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background-color 0.3s;
-        }
-        .clear-search-btn:hover {
-            background: #7f8c8d;
-        }
-        #loading {
-            text-align: center;
-            padding: 50px;
-            font-size: 18px;
-            color: #666;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .table-container {
-            max-height: 800px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        th {
-            background: linear-gradient(135deg, #2c3e50, #4a6491);
-            color: white;
-            padding: 16px 12px;
-            text-align: left;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-        }
-        td {
-            border: 1px solid #e1e1e1;
-            padding: 14px 12px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-        tr:hover td {
-            background-color: #e3f2fd !important;
-        }
-        
-        /* Column 1: Rank-based colors */
-        td.rank-1-3 {
-            background-color: #fff3cd !important;
-            border-left: 4px solid #ffc107;
-            font-weight: bold;
-        }
-        td.rank-4-10 {
-            background-color: #e2e3e5 !important;
-            border-left: 4px solid #6c757d;
-            font-weight: bold;
-        }
-        td.rank-11-25 {
-            background-color: #f8d7da !important;
-            border-left: 4px solid #dc3545;
-            font-weight: bold;
-        }
-        td.rank-26-50 {
-            background-color: #cce5ff !important;
-            border-left: 4px solid #0d6efd;
-            font-weight: bold;
-        }
-        
-        /* Columns 2-6: Green when DKP ≥ 100% */
-        td.green-dkp-cell {
-            background-color: #d4edda !important;
-        }
-        
-        /* Legend */
-        .legend {
-            margin-top: 20px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-        .legend-section h4 {
-            margin: 0 0 15px 0;
-            color: #2c3e50;
-            font-size: 16px;
-        }
-        .legend-items {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: #495057;
-        }
-        .legend-box {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid;
-            border-radius: 4px;
-            vertical-align: middle;
-        }
-        
-        /* Rank color boxes */
-        .rank-1-3-box {
-            background-color: #fff3cd;
-            border-color: #ffc107;
-        }
-        .rank-4-10-box {
-            background-color: #e2e3e5;
-            border-color: #6c757d;
-        }
-        .rank-11-25-box {
-            background-color: #f8d7da;
-            border-color: #dc3545;
-        }
-        .rank-26-50-box {
-            background-color: #cce5ff;
-            border-color: #0d6efd;
-        }
-        
-        /* DKP color box */
-        .green-dkp-box {
-            background-color: #d4edda;
-            border-color: #28a745;
-        }
-        
-        .error-box {
-            color: #721c24;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 5px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-            font-style: italic;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        mark {
-            background-color: #ffeb3b;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-weight: bold;
-        }
-        .table-container::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        .table-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        .table-container::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
-        }
-        .table-container::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-        @media (max-width: 768px) {
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .search-container {
-                max-width: 100%;
-            }
-            .stats {
-                flex-direction: column;
-                gap: 10px;
-            }
-            .legend {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-        }
-    </style>
 </body>
 </html>
