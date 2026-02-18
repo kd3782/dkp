@@ -19,7 +19,7 @@
     <div class="calculator-row">
         <div class="calculator-input-group">
             <label for="calc-name">Player Name:</label>
-            <input type="text" id="calc-name" placeholder="Enter your nickname..." oninput="searchPlayerForCalc()">
+            <input type="text" id="calc-name" placeholder="Enter your nickname...">
         </div>
         <button class="calculator-btn" onclick="searchPlayerForCalc()">🔍 Calculate</button>
     </div>
@@ -46,6 +46,10 @@
                 <span class="result-label">T5 units to kill:</span>
                 <span class="result-value" id="calc-t5-kills">-</span>
             </div>
+        </div>
+        <div class="calculation-formula" id="calc-formula" style="display: none;">
+            Formula: (Power - DKP) × 2 = KP needed<br>
+            T4 kills = KP needed ÷ 10 | T5 kills = KP needed ÷ 20
         </div>
     </div>
     
@@ -213,7 +217,7 @@
             return '';
         }
 
-        // =========== CALCULATOR FUNCTIONS ===========
+       // =========== CALCULATOR FUNCTIONS ===========
 function searchPlayerForCalc() {
     const playerName = document.getElementById('calc-name').value.trim();
     
@@ -222,14 +226,20 @@ function searchPlayerForCalc() {
         return;
     }
     
+    // Sprawdź czy wszystkie elementy istnieją
+    const resultsDiv = document.getElementById('calculator-results');
+    const notFoundDiv = document.getElementById('calculator-not-found');
+    const formulaDiv = document.getElementById('calc-formula');
+    
+    if (!resultsDiv || !notFoundDiv || !formulaDiv) {
+        console.error('Brakuje elementów kalkulatora w HTML!');
+        return;
+    }
+    
     // Search for player in data
     const player = allPlayerData.find(row => 
         row[1]?.toLowerCase() === playerName.toLowerCase()
     );
-    
-    const resultsDiv = document.getElementById('calculator-results');
-    const notFoundDiv = document.getElementById('calculator-not-found');
-    const formulaDiv = document.getElementById('calc-formula');
     
     if (!player) {
         // Player not found
@@ -267,23 +277,30 @@ function searchPlayerForCalc() {
     const formattedT5Kills = t5Kills.toLocaleString('en-US');
     
     // Update results
-    document.getElementById('calc-power').textContent = formattedPower;
-    document.getElementById('calc-dkp').textContent = formattedDkp;
-    document.getElementById('calc-kp-needed').textContent = formattedKpNeeded;
-    document.getElementById('calc-t4-kills').textContent = formattedT4Kills;
-    document.getElementById('calc-t5-kills').textContent = formattedT5Kills;
+    const powerEl = document.getElementById('calc-power');
+    const dkpEl = document.getElementById('calc-dkp');
+    const kpNeededEl = document.getElementById('calc-kp-needed');
+    const t4El = document.getElementById('calc-t4-kills');
+    const t5El = document.getElementById('calc-t5-kills');
+    
+    if (powerEl) powerEl.textContent = formattedPower;
+    if (dkpEl) dkpEl.textContent = formattedDkp;
+    
+    // Highlight if already at 100%+
+    if (kpDkp >= 100) {
+        if (kpNeededEl) kpNeededEl.innerHTML = '✅ Already at 100%+';
+        if (t4El) t4El.innerHTML = '✅';
+        if (t5El) t5El.innerHTML = '✅';
+    } else {
+        if (kpNeededEl) kpNeededEl.textContent = formattedKpNeeded;
+        if (t4El) t4El.textContent = formattedT4Kills;
+        if (t5El) t5El.textContent = formattedT5Kills;
+    }
     
     // Show results
     resultsDiv.style.display = 'block';
     notFoundDiv.style.display = 'none';
     formulaDiv.style.display = 'block';
-    
-    // Highlight if already at 100%+
-    if (kpDkp >= 100) {
-        document.getElementById('calc-kp-needed').innerHTML = '✅ Already at 100%+';
-        document.getElementById('calc-t4-kills').innerHTML = '✅';
-        document.getElementById('calc-t5-kills').innerHTML = '✅';
-    }
 }
 
         function displayData(data) {
