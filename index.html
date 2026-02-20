@@ -66,7 +66,7 @@
             <div>Last Updated: <span id="last-update">-</span></div>
             <div>Total Players: <span id="player-count">0</span></div>
             <div>Showing: <span id="showing-count">0</span> players</div>
-            <div>Last Scan: <span id="last-scan">18.02.2026</span></div>
+            <div>Last Scan: <span id="last-scan">20.02.2026</span></div>
         </div>
 
         <div class="controls">
@@ -174,7 +174,6 @@
                 
                 const now = new Date();
                 document.getElementById('last-update').textContent = now.toLocaleTimeString();
-                document.getElementById('last-scan').textContent = now.toLocaleDateString('en-GB');
                 
             } catch (error) {
                 document.getElementById('data-container').innerHTML =
