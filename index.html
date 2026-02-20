@@ -34,6 +34,10 @@
                 <span class="result-label">Current DKP:</span>
                 <span class="result-value" id="calc-dkp">-</span>
             </div>
+            <div class="result-item">
+                <span class="result-label">Current KP DKP:</span>
+                <span class="result-value" id="calc-kp-dkp">-</span>
+            </div>
             <div class="result-item highlight">
                 <span class="result-label">T4/T5 KP needed for 100%:</span>
                 <span class="result-value" id="calc-kp-needed">-</span>
@@ -48,7 +52,7 @@
             </div>
         </div>
         <div class="calculation-formula" id="calc-formula" style="display: none;">
-            Formula: (Power - DKP) × 2 = KP needed<br>
+            Formula: (Power - DKP Points) × 2 = KP needed<br>
             T4 kills = KP needed ÷ 10 | T5 kills = KP needed ÷ 20
         </div>
     </div>
@@ -127,14 +131,25 @@
             'Player Name',
             'DKP',
             'Power',
-            'KP DKP',  // This column checked for ≥100%
+            'KP DKP',
             'Deads DKP'
         ];
 
         const START_ROW = 2;
-        const TARGET_COLUMNS = [1, 2, 4, 3, 5, 6];
+        // Wczytujemy 7 kolumn z arkusza (B-H): B,C,E,D,F,G,H
+        const TARGET_COLUMNS = [1, 2, 4, 3, 5, 6, 7];
         
-        const KP_DKP_COLUMN = 4; // Index of KP DKP column
+        // Indeksy w tablicy allPlayerData
+        const COL_RANK = 0;        // z kolumny B
+        const COL_NAME = 1;         // z kolumny C  
+        const COL_DKP = 2;          // z kolumny E (%)
+        const COL_POWER = 3;        // z kolumny D (liczba)
+        const COL_KP_DKP = 4;       // z kolumny F (%)
+        const COL_DEADS_DKP = 5;    // z kolumny G (%)
+        const COL_PUNKTY_DKP = 6;   // z kolumny H (liczba) - tylko do kalkulatora!
+        
+        // Alias dla czytelności
+        const DKP_COLUMN = COL_DKP;
         // ======================================
 
         const SHEET_URL = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?gid=${SHEET_GID}&single=true&output=csv`;
@@ -159,6 +174,7 @@
                 
                 const now = new Date();
                 document.getElementById('last-update').textContent = now.toLocaleTimeString();
+                document.getElementById('last-scan').textContent = now.toLocaleDateString('en-GB');
                 
             } catch (error) {
                 document.getElementById('data-container').innerHTML =
@@ -182,26 +198,43 @@
                 TARGET_COLUMNS.forEach(colIndex => {
                     extractedRow.push((colIndex < row.length) ? (row[colIndex] || '') : '');
                 });
-                extractedData.push(extractedRow);
+                // Tylko dodajemy jeśli mamy nazwę gracza
+                if (extractedRow[COL_NAME] && extractedRow[COL_NAME].trim() !== '') {
+                    extractedData.push(extractedRow);
+                }
             }
             return extractedData;
         }
 
-        function hasHighDkp(row) {
-            if (!row || row.length <= KP_DKP_COLUMN) return false;
-            
-            const kpDkpValue = row[KP_DKP_COLUMN];
-            if (!kpDkpValue) return false;
-            
-            // Remove % sign and convert to number
-            const cleanValue = kpDkpValue.toString()
+        function parsePercentageValue(value) {
+            if (!value) return 0;
+            const clean = value.toString()
                 .replace('%', '')
                 .replace(',', '.')
                 .trim();
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function parseNumber(value) {
+            if (!value) return 0;
+            const clean = value.toString().replace(/[^0-9.-]/g, '');
+            const num = parseFloat(clean);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function formatPercentage(num) {
+            if (num === 0) return '0%';
+            return num.toFixed(2) + '%';
+        }
+
+        function hasHighDkp(row) {
+            if (!row || row.length <= DKP_COLUMN) return false;
             
-            const numericValue = parseFloat(cleanValue);
+            const dkpValue = row[DKP_COLUMN];
+            if (!dkpValue) return false;
             
-            // Return true if number is valid and ≥ 100
+            const numericValue = parsePercentageValue(dkpValue);
             return !isNaN(numericValue) && numericValue >= 100;
         }
 
@@ -217,91 +250,99 @@
             return '';
         }
 
-       // =========== CALCULATOR FUNCTIONS ===========
-function searchPlayerForCalc() {
-    const playerName = document.getElementById('calc-name').value.trim();
-    
-    if (!playerName) {
-        alert('Please enter a player name');
-        return;
-    }
-    
-    // Sprawdź czy wszystkie elementy istnieją
-    const resultsDiv = document.getElementById('calculator-results');
-    const notFoundDiv = document.getElementById('calculator-not-found');
-    const formulaDiv = document.getElementById('calc-formula');
-    
-    if (!resultsDiv || !notFoundDiv || !formulaDiv) {
-        console.error('Brakuje elementów kalkulatora w HTML!');
-        return;
-    }
-    
-    // Search for player in data
-    const player = allPlayerData.find(row => 
-        row[1]?.toLowerCase() === playerName.toLowerCase()
-    );
-    
-    if (!player) {
-        // Player not found
-        resultsDiv.style.display = 'none';
-        notFoundDiv.style.display = 'block';
-        formulaDiv.style.display = 'none';
-        return;
-    }
-    
-    // Player found - extract data
-    // Index mapping: [0]Rank, [1]Name, [2]DKP, [3]Power, [4]KP DKP, [5]Deads DKP
-    
-    // Extract numeric values (remove commas, etc.)
-    const powerStr = player[3]?.toString() || '0';
-    const dkpStr = player[2]?.toString() || '0';
-    const kpDkpStr = player[4]?.toString() || '0%';
-    
-    // Parse numbers
-    const power = parseFloat(powerStr.replace(/[^0-9.-]/g, '')) || 0;
-    const dkp = parseFloat(dkpStr.replace(/[^0-9.-]/g, '')) || 0;
-    const kpDkp = parseFloat(kpDkpStr.replace(/[^0-9.-]/g, '')) || 0;
-    
-    // Calculate KP needed: (Power - DKP) * 2
-    const kpNeeded = (power - dkp) * 2;
-    
-    // Calculate T4 and T5 kills
-    const t4Kills = Math.ceil(kpNeeded / 10);
-    const t5Kills = Math.ceil(kpNeeded / 20);
-    
-    // Format for display
-    const formattedPower = power.toLocaleString('en-US');
-    const formattedDkp = dkp.toLocaleString('en-US');
-    const formattedKpNeeded = Math.round(kpNeeded).toLocaleString('en-US');
-    const formattedT4Kills = t4Kills.toLocaleString('en-US');
-    const formattedT5Kills = t5Kills.toLocaleString('en-US');
-    
-    // Update results
-    const powerEl = document.getElementById('calc-power');
-    const dkpEl = document.getElementById('calc-dkp');
-    const kpNeededEl = document.getElementById('calc-kp-needed');
-    const t4El = document.getElementById('calc-t4-kills');
-    const t5El = document.getElementById('calc-t5-kills');
-    
-    if (powerEl) powerEl.textContent = formattedPower;
-    if (dkpEl) dkpEl.textContent = formattedDkp;
-    
-    // Highlight if already at 100%+
-    if (kpDkp >= 100) {
-        if (kpNeededEl) kpNeededEl.innerHTML = '✅ Already at 100%+';
-        if (t4El) t4El.innerHTML = '✅';
-        if (t5El) t5El.innerHTML = '✅';
-    } else {
-        if (kpNeededEl) kpNeededEl.textContent = formattedKpNeeded;
-        if (t4El) t4El.textContent = formattedT4Kills;
-        if (t5El) t5El.textContent = formattedT5Kills;
-    }
-    
-    // Show results
-    resultsDiv.style.display = 'block';
-    notFoundDiv.style.display = 'none';
-    formulaDiv.style.display = 'block';
-}
+        // =========== CALCULATOR FUNCTIONS ===========
+        function searchPlayerForCalc() {
+            const playerName = document.getElementById('calc-name').value.trim();
+            
+            if (!playerName) {
+                alert('Please enter a player name');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('calculator-results');
+            const notFoundDiv = document.getElementById('calculator-not-found');
+            const formulaDiv = document.getElementById('calc-formula');
+            
+            if (!resultsDiv || !notFoundDiv || !formulaDiv) {
+                console.error('Brakuje elementów kalkulatora w HTML!');
+                return;
+            }
+            
+            // Search for player in data (case insensitive)
+            const player = allPlayerData.find(row => 
+                row[COL_NAME]?.toLowerCase().trim() === playerName.toLowerCase()
+            );
+            
+            if (!player) {
+                resultsDiv.style.display = 'none';
+                notFoundDiv.style.display = 'block';
+                formulaDiv.style.display = 'none';
+                return;
+            }
+            
+            // Player found - extract data using named constants
+            const powerStr = player[COL_POWER]?.toString() || '0';
+            const punktyDKPStr = player[COL_PUNKTY_DKP]?.toString() || '0';
+            const dkpProcent = player[COL_DKP]?.toString() || '0%';
+            const kpDkpProcent = player[COL_KP_DKP]?.toString() || '0%';
+            
+            // Parse numbers
+            const power = parseNumber(powerStr);
+            const punktyDKP = parseNumber(punktyDKPStr);
+            const dkp = parsePercentageValue(dkpProcent);
+            const kpDkp = parsePercentageValue(kpDkpProcent);
+            
+            // Oblicz ile KP potrzeba do 100% DKP
+            // Wzór: (Power - PunktyDKP) × 2 = KP needed
+            const kpNeeded = (power - punktyDKP) * 2;
+            
+            // Czy już osiągnięto 100% DKP?
+            const isAtTarget = dkp >= 100;
+            
+            // Wartość bezwzględna dla T4/T5 (jeśli już po celu)
+            const absoluteKpNeeded = Math.abs(kpNeeded);
+            
+            // Calculate T4 and T5 kills
+            const t4Kills = Math.ceil(absoluteKpNeeded / 10);
+            const t5Kills = Math.ceil(absoluteKpNeeded / 20);
+            
+            // Format for display
+            const formattedPower = power.toLocaleString('en-US');
+            const formattedDkp = dkp.toFixed(2) + '%';
+            const formattedKpDkp = kpDkp.toFixed(2) + '%';
+            const formattedKpNeeded = Math.round(absoluteKpNeeded).toLocaleString('en-US');
+            const formattedT4Kills = t4Kills.toLocaleString('en-US');
+            const formattedT5Kills = t5Kills.toLocaleString('en-US');
+            
+            // Update results
+            const powerEl = document.getElementById('calc-power');
+            const dkpEl = document.getElementById('calc-dkp');
+            const kpDkpEl = document.getElementById('calc-kp-dkp');
+            const kpNeededEl = document.getElementById('calc-kp-needed');
+            const t4El = document.getElementById('calc-t4-kills');
+            const t5El = document.getElementById('calc-t5-kills');
+            
+            if (powerEl) powerEl.textContent = formattedPower;
+            if (dkpEl) dkpEl.textContent = formattedDkp;
+            if (kpDkpEl) kpDkpEl.textContent = formattedKpDkp;
+            
+            if (isAtTarget) {
+                // Już ma 100% DKP
+                if (kpNeededEl) kpNeededEl.innerHTML = '✅ Already at 100% DKP!';
+                if (t4El) t4El.innerHTML = '✅';
+                if (t5El) t5El.innerHTML = '✅';
+            } else {
+                // Wyświetl ile potrzeba do celu
+                if (kpNeededEl) kpNeededEl.textContent = formattedKpNeeded;
+                if (t4El) t4El.textContent = formattedT4Kills;
+                if (t5El) t5El.textContent = formattedT5Kills;
+            }
+            
+            // Show results
+            resultsDiv.style.display = 'block';
+            notFoundDiv.style.display = 'none';
+            formulaDiv.style.display = 'block';
+        }
 
         function displayData(data) {
             if (!data || data.length === 0) {
@@ -317,6 +358,7 @@ function searchPlayerForCalc() {
             }
             
             let html = `<div class="table-container"><table><thead><tr>`;
+            // Wyświetlamy tylko 6 nagłówków
             CUSTOM_HEADERS.forEach(header => { html += `<th>${header}</th>`; });
             html += `</tr></thead><tbody>`;
             
@@ -325,12 +367,13 @@ function searchPlayerForCalc() {
                 
                 html += `<tr>`;
                 
-                row.forEach((cell, cellIndex) => {
-                    let cellContent = cell || '';
+                // Wyświetlamy tylko pierwsze 6 kolumn (pomijamy COL_PUNKTY_DKP)
+                for (let cellIndex = 0; cellIndex < 6; cellIndex++) {
+                    let cellContent = row[cellIndex] || '';
                     let cellClass = '';
                     
                     // Column 1: Rank-based colors
-                    if (cellIndex === 0) {
+                    if (cellIndex === COL_RANK) {
                         cellClass = getRankColorClass(cellContent);
                         if (cellContent === '1') cellContent = '🥇 ' + cellContent;
                         else if (cellContent === '2') cellContent = '🥈 ' + cellContent;
@@ -343,13 +386,13 @@ function searchPlayerForCalc() {
                     
                     // Highlight search term in Player Name
                     const searchTerm = document.getElementById('search-input').value.toLowerCase();
-                    if (cellIndex === 1 && searchTerm && cellContent.toLowerCase().includes(searchTerm)) {
+                    if (cellIndex === COL_NAME && searchTerm && cellContent.toLowerCase().includes(searchTerm)) {
                         const regex = new RegExp(`(${searchTerm})`, 'gi');
                         cellContent = cellContent.replace(regex, '<mark>$1</mark>');
                     }
                     
                     html += `<td class="${cellClass}">${cellContent}</td>`;
-                });
+                }
                 html += `</tr>`;
             });
             
@@ -365,7 +408,7 @@ function searchPlayerForCalc() {
                 filteredData = [...allPlayerData];
             } else {
                 filteredData = allPlayerData.filter(row => {
-                    const playerName = row[1] || '';
+                    const playerName = row[COL_NAME] || '';
                     return playerName.toLowerCase().includes(searchTerm);
                 });
             }
