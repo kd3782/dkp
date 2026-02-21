@@ -43,17 +43,27 @@
                 <span class="result-value" id="calc-kp-needed">-</span>
             </div>
             <div class="result-item">
-                <span class="result-label">T4 units to kill:</span>
+                <span class="result-label">T4 units to kill (5 DKP/10 KP each):</span>
                 <span class="result-value" id="calc-t4-kills">-</span>
             </div>
             <div class="result-item">
-                <span class="result-label">T5 units to kill:</span>
+                <span class="result-label">T5 units to kill (10 DKP/20 KP each):</span>
                 <span class="result-value" id="calc-t5-kills">-</span>
+            </div>
+            <!-- NOWE POLA: Śmierci T4 i T5 -->
+            <div class="result-item">
+                <span class="result-label">T4 deaths needed (15 DKP each):</span>
+                <span class="result-value" id="calc-t4-deaths">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">T5 deaths needed (20 DKP each):</span>
+                <span class="result-value" id="calc-t5-deaths">-</span>
             </div>
         </div>
         <div class="calculation-formula" id="calc-formula" style="display: none;">
             Formula: (Power - DKP Points) × 2 = KP needed<br>
-            T4 kills = KP needed ÷ 10 | T5 kills = KP needed ÷ 20
+            T4 kills = KP needed ÷ 5 | T5 kills = KP needed ÷ 10<br>
+            T4 deaths = KP needed ÷ 15 | T5 deaths = KP needed ÷ 20
         </div>
     </div>
     
@@ -66,7 +76,7 @@
             <div>Last Updated: <span id="last-update">-</span></div>
             <div>Total Players: <span id="player-count">0</span></div>
             <div>Showing: <span id="showing-count">0</span> players</div>
-            <div>Last Scan: <span id="last-scan">20.02.2026</span></div>
+            <div>Last Scan: <span id="last-scan">21.02.2026</span></div>
         </div>
 
         <div class="controls">
@@ -305,6 +315,10 @@
             const t4Kills = Math.ceil(absoluteKpNeeded / 10);
             const t5Kills = Math.ceil(absoluteKpNeeded / 20);
             
+            // Calculate T4 and T5 deaths (NEW)
+            const t4Deaths = Math.ceil(absoluteKpNeeded / 30);
+            const t5Deaths = Math.ceil(absoluteKpNeeded / 40); // T5 deaths też 20 pkt
+            
             // Format for display
             const formattedPower = power.toLocaleString('en-US');
             const formattedDkp = dkp.toFixed(2) + '%';
@@ -312,14 +326,18 @@
             const formattedKpNeeded = Math.round(absoluteKpNeeded).toLocaleString('en-US');
             const formattedT4Kills = t4Kills.toLocaleString('en-US');
             const formattedT5Kills = t5Kills.toLocaleString('en-US');
+            const formattedT4Deaths = t4Deaths.toLocaleString('en-US');
+            const formattedT5Deaths = t5Deaths.toLocaleString('en-US');
             
             // Update results
             const powerEl = document.getElementById('calc-power');
             const dkpEl = document.getElementById('calc-dkp');
             const kpDkpEl = document.getElementById('calc-kp-dkp');
             const kpNeededEl = document.getElementById('calc-kp-needed');
-            const t4El = document.getElementById('calc-t4-kills');
-            const t5El = document.getElementById('calc-t5-kills');
+            const t4KillsEl = document.getElementById('calc-t4-kills');
+            const t5KillsEl = document.getElementById('calc-t5-kills');
+            const t4DeathsEl = document.getElementById('calc-t4-deaths');
+            const t5DeathsEl = document.getElementById('calc-t5-deaths');
             
             if (powerEl) powerEl.textContent = formattedPower;
             if (dkpEl) dkpEl.textContent = formattedDkp;
@@ -328,13 +346,17 @@
             if (isAtTarget) {
                 // Już ma 100% DKP
                 if (kpNeededEl) kpNeededEl.innerHTML = '✅ Already at 100% DKP!';
-                if (t4El) t4El.innerHTML = '✅';
-                if (t5El) t5El.innerHTML = '✅';
+                if (t4KillsEl) t4KillsEl.innerHTML = '✅';
+                if (t5KillsEl) t5KillsEl.innerHTML = '✅';
+                if (t4DeathsEl) t4DeathsEl.innerHTML = '✅';
+                if (t5DeathsEl) t5DeathsEl.innerHTML = '✅';
             } else {
                 // Wyświetl ile potrzeba do celu
                 if (kpNeededEl) kpNeededEl.textContent = formattedKpNeeded;
-                if (t4El) t4El.textContent = formattedT4Kills;
-                if (t5El) t5El.textContent = formattedT5Kills;
+                if (t4KillsEl) t4KillsEl.textContent = formattedT4Kills;
+                if (t5KillsEl) t5KillsEl.textContent = formattedT5Kills;
+                if (t4DeathsEl) t4DeathsEl.textContent = formattedT4Deaths;
+                if (t5DeathsEl) t5DeathsEl.textContent = formattedT5Deaths;
             }
             
             // Show results
